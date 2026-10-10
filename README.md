@@ -1,8 +1,10 @@
-# Job Finder · live
+# Job Radar · website host
+
+> **Don't edit this repo.** It only publishes the dashboard website. All work happens in the private `job-finder` repo, and `tools/sync_public.sh` there copies the pipeline code here (never resumes or personal data).
 
 An hourly-updated dashboard of live US job openings: every internship and co-op, plus full-time roles in tech fields, sorted by state, job type (full-time / internship / co-op) and work mode (remote / hybrid / on-site), and graded by posting age and reposts.
 
-**Dashboard:** https://aashay1-ops.github.io/job-finder-live/
+**Dashboard:** https://aashay1-ops.github.io/job-finder-site/
 
 ## How it updates
 

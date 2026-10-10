@@ -4,7 +4,7 @@ The public site repo never contains resume files; the hourly workflow reads them
 so it can score jobs, and score_jobs.py --public keeps the text out of the published data.
 
 Usage (after editing anything in resumes/):
-    python3 src/export_resumes.py | gh secret set RESUMES_JSON --repo Aashay1-ops/job-finder-live
+    python3 src/export_resumes.py | gh secret set RESUMES_JSON --repo Aashay1-ops/job-finder-site
 """
 import json
 import sys
