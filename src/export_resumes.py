@@ -1,6 +1,6 @@
 """Pack the resumes into one JSON blob for the RESUMES_JSON GitHub Actions secret.
 
-The public site repo never contains resume files; the hourly workflow reads them from this secret
+The public site repo never contains resume files; the refresh workflow reads them from this secret
 so it can score jobs, and score_jobs.py --public keeps the text out of the published data.
 
 Usage (after editing anything in resumes/):

@@ -5,7 +5,7 @@ skeleton). A plain web host needs the full document, so this wraps it, then copi
 and writes meta.json, the small file the open page polls to notice a newer update.
 
 Usage:  python3 src/build_site.py
-Output: site/   (deployed to GitHub Pages by .github/workflows/hourly.yml)
+Output: site/   (deployed to GitHub Pages by .github/workflows/refresh.yml)
 """
 import json
 import shutil

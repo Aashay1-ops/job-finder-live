@@ -1,5 +1,5 @@
 # Full freehire.me sweep, twice a week. Takes ~3 hours because freehire throttles sustained use,
-# so it runs apart from the hourly job; the next hourly run adopts its result.
+# so it runs apart from the regular refresh; the next refresh adopts its result.
 name: freehire full sweep
 
 on:

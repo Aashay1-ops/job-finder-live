@@ -5,8 +5,8 @@ Its search API caps paging at offset+limit <= 10,000, so:
   - full sweep (twice a week, its own workflow; ~3 hours because the API throttles sustained use):
     every slice is read completely, splitting a big slice by `source` (each posting has exactly
     one source, so the split never double-counts or skips). Also drops postings that closed.
-  - incremental (hourly): read each slice newest-first (sort=created_at) only until reaching
-    postings already seen, so an hourly run is a few dozen requests instead of ~3,000.
+  - incremental (every refresh, 6-hourly): read each slice newest-first (sort=created_at) only until reaching
+    postings already seen, so a regular run is a few dozen requests instead of ~3,000.
 State lives in data/freehire_store.json.gz; a full sweep writes data/freehire_full.json.gz, which
 the next incremental run adopts.
 
@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parent.parent
 STORE = ROOT / "data" / "freehire_store.json.gz"
 FULL = ROOT / "data" / "freehire_full.json.gz"
 API = "https://freehire.me/api/v1"
-UA = {"User-Agent": "Mozilla/5.0 (job-finder personal script; hourly)"}
+UA = {"User-Agent": "Mozilla/5.0 (job-finder personal script)"}
 CAP = 10_000          # the API refuses offset + limit beyond this
 PAGE = 100            # the API's max page size
 OVERLAP = timedelta(hours=3)  # incremental runs re-read this much before the last run, to be safe

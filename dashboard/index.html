@@ -47,6 +47,8 @@ a { color: var(--accent) }
 header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 24px }
 header p { margin: 4px 0 0; color: var(--muted); max-width: 78ch }
 .stamp { font-family: var(--mono); font-size: 12px; color: var(--muted) }
+.refresh { display: grid; gap: 6px; justify-items: end; text-align: right }
+@media (max-width: 700px) { .refresh { justify-items: start; text-align: left } }
 .banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; background: var(--accent-soft); border-color: var(--accent) }
 
 /* headline counts, grouped: total | job type | work mode */
@@ -189,9 +191,16 @@ td.zero { color: var(--muted); opacity: .5 }
   <header>
     <div>
       <h1>Job Radar</h1>
-      <p>Live US job openings, updated every hour: every internship and co-op, plus full-time roles in tech fields. Pulled from <span id="h-src">237</span> sources (company job boards, the freehire.me aggregator, and Simplify's internship and new-grad lists), sorted by state and scored against your resumes.</p>
+      <p>Live US job openings, updated every 6 hours: every internship and co-op, plus full-time roles in tech fields. Pulled from <span id="h-src">237</span> sources (company job boards, the freehire.me aggregator, and Simplify's internship and new-grad lists), sorted by state and scored against your resumes.</p>
     </div>
-    <div class="stamp" id="stamp">Loading jobs…</div>
+    <div class="refresh">
+      <div class="stamp" id="stamp">Loading jobs…</div>
+      <div class="actions">
+        <button class="btn" id="get-latest">Get latest data</button>
+        <a class="btn" id="run-refresh" target="_blank" rel="noopener" title="Opens GitHub: click 'Run workflow' (repo owner only). New data appears about 12 minutes later.">Run a refresh now ↗</a>
+      </div>
+      <div class="note" id="refresh-note" aria-live="polite"></div>
+    </div>
   </header>
   <div class="card banner" id="banner" hidden>Newer job data is available. <button class="btn primary" id="reload">Reload</button></div>
 
@@ -278,7 +287,10 @@ function fitClass(f) { return f >= 80 ? "f-strong" : f >= 65 ? "f-good" : "f-low
 function fitWord(f) { return f >= 80 ? "strong" : f >= 65 ? "good" : "stretch" }
 
 /* ---------- load + decode ---------- */
-fetch("jobs.json").then(r => r.json()).then(d => {
+let VER = "";
+fetch("meta.json", { cache: "no-store" }).then(r => r.ok ? r.json() : {}).catch(() => ({}))
+  .then(m => { VER = m.fetched_at ? "?v=" + encodeURIComponent(m.fetched_at) : ""; return fetch("jobs.json" + VER) })
+  .then(r => r.json()).then(d => {
   META = d.meta;
   // each job is an array in meta.cols order; turn it back into {t, c, l, ...}
   const cols = META.cols;
@@ -343,7 +355,7 @@ function recommend(j) {
 function stamp() {
   const when = new Date(META.fetched_at), mins = Math.max(0, Math.round((Date.now() - when) / 60e3));
   const ago = mins < 1 ? "just now" : mins < 60 ? mins + " min ago" : mins < 1440 ? Math.round(mins / 60) + " h ago" : Math.round(mins / 1440) + " days ago";
-  $("#stamp").textContent = "Updated " + ago + " (" + when.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + ") · refreshes hourly";
+  $("#stamp").textContent = "Updated " + ago + " (" + when.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + ") · refreshes every 6 hours";
 }
 function checkNewer() {
   // meta.json is a few bytes, so polling it is cheap; jobs.json is only re-downloaded on Reload
@@ -352,6 +364,21 @@ function checkNewer() {
   }).catch(() => {});
 }
 $("#reload").addEventListener("click", () => location.reload());
+$("#get-latest").addEventListener("click", async () => {
+  const note = $("#refresh-note"), btn = $("#get-latest");
+  btn.disabled = true; note.textContent = "Checking for newer data…";
+  try {
+    const m = await (await fetch("meta.json", { cache: "no-store" })).json();
+    if (META && m.fetched_at === META.fetched_at) { note.textContent = "You already have the latest data. The next update is due within 6 hours, or run a refresh now."; btn.disabled = false }
+    else { note.textContent = "Loading the newer data…"; location.reload() }
+  } catch { note.textContent = "Couldn't check for updates. Check your connection and try again."; btn.disabled = false }
+});
+// the workflow lives in the repo this page is served from: <owner>.github.io/<repo>/
+(() => {
+  const owner = location.hostname.endsWith(".github.io") ? location.hostname.split(".")[0] : "aashay1-ops";
+  const repo = location.hostname.endsWith(".github.io") ? (location.pathname.split("/")[1] || "job-finder-site") : "job-finder-site";
+  $("#run-refresh").href = `https://github.com/${owner}/${repo}/actions/workflows/refresh.yml`;
+})();
 
 /* ---------- filter state ---------- */
 const IDS = ["f-agg", "f-level", "f-field", "f-sort", "f-color", "f-mine", "f-cit", "f-spon", "f-yrs"];
@@ -542,7 +569,7 @@ function md(src, highlight = []) {
 /* ---------- detail ---------- */
 async function details(j) {
   // [link, description] for one job, from the details file holding its row
-  SHARDS[j.shard] ||= fetch(`details-${j.shard}.json`).then(r => r.json()).catch(() => ({}));
+  SHARDS[j.shard] ||= fetch(`details-${j.shard}.json${VER}`).then(r => r.json()).catch(() => ({}));
   return (await SHARDS[j.shard])[j.id] || ["", ""];
 }
 async function description(j) { return (await details(j))[1] }

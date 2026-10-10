@@ -4,7 +4,7 @@ Usage:  python3 src/score_jobs.py [--public]      (run after fetch_jobs.py)
 Output: dashboard/jobs.json + dashboard/details-<n>.json   (what the dashboard page loads)
         --public leaves resume text and contact details out of the output (for the public site)
 
-Resumes come from the RESUMES_JSON environment variable when it is set (the hourly GitHub
+Resumes come from the RESUMES_JSON environment variable when it is set (the refresh GitHub
 Action passes them in as a secret), otherwise from the files in resumes/.
 
 How the score works (0-100), per resume:
