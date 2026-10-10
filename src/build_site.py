@@ -43,7 +43,8 @@ def main():
     files = [DASH / "jobs.json", *sorted(DASH.glob("details-*.json"))]
     for f in files:
         shutil.copy2(f, SITE / f.name)
-    (SITE / "meta.json").write_text(json.dumps({"fetched_at": meta["fetched_at"]}))
+    n_jobs = len(json.loads((DASH / "jobs.json").read_text())["jobs"])
+    (SITE / "meta.json").write_text(json.dumps({"fetched_at": meta["fetched_at"], "jobs": n_jobs}))
     (SITE / ".nojekyll").write_text("")  # serve files as-is, no Jekyll processing
     size = sum(f.stat().st_size for f in SITE.iterdir()) / 1e6
     print(f"site/ ready: {len(files) + 2} files, {size:.0f} MB")

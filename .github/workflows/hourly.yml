@@ -1,0 +1,94 @@
+# Rebuilds the job dashboard every hour and publishes it to GitHub Pages.
+# Runs in the public job-finder-site repo; resumes arrive via the RESUMES_JSON secret and are never published.
+name: Hourly job refresh
+
+on:
+  schedule:
+    - cron: "7 * * * *"   # 7 past every hour (GitHub may start scheduled runs a few minutes late)
+  workflow_dispatch:       # "Run workflow" button for an immediate refresh
+
+permissions:
+  contents: write   # push the built site to the gh-pages branch
+
+concurrency:
+  group: hourly-refresh
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Repost history and the freehire job store carry over between runs.
+      # Each run saves a new cache entry; GitHub evicts the oldest ones automatically.
+      - name: Restore pipeline state
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/history.json
+            data/freehire_store.json.gz
+          key: state-${{ github.run_id }}
+          restore-keys: state-
+
+      # Written by the twice-weekly freehire-sweep workflow; adopted when newer than the store
+      - name: Restore latest freehire full sweep
+        uses: actions/cache/restore@v4
+        with:
+          path: data/freehire_full.json.gz
+          key: full-${{ github.run_id }}
+          restore-keys: full-
+
+      # First run (or after cache eviction): start from the seed release instead of an empty store
+      - name: Seed state if the cache is empty
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ ! -f data/freehire_store.json.gz ] && [ ! -f data/freehire_full.json.gz ]; then
+            mkdir -p data && gh release download --repo "${{ github.repository }}" --pattern "*" --dir data --clobber && ls -la data
+          fi
+
+      - name: Fetch jobs
+        env:
+          FREEHIRE_MODE: incremental
+        run: python src/fetch_jobs.py
+
+      - name: Score jobs (public output, no resume text)
+        env:
+          RESUMES_JSON: ${{ secrets.RESUMES_JSON }}
+        run: python src/score_jobs.py --public
+
+      - name: Build site
+        run: python src/build_site.py
+
+      # Don't publish a run that lost most of its jobs (e.g. a source outage); the live site stays as is
+      - name: Check job count against the live site
+        run: |
+          new=$(python -c "import json;print(json.load(open('site/meta.json'))['jobs'])")
+          live=$(curl -sf "https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/meta.json" | python -c "import json,sys;print(json.load(sys.stdin).get('jobs',0))" || echo 0)
+          echo "new: $new jobs · live: $live jobs"
+          python -c "import sys; sys.exit(1 if $live and $new < 0.7 * $live else 0)" || { echo "::error::job count fell below 70% of the live site; not deploying"; exit 1; }
+
+      - name: Save pipeline state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/history.json
+            data/freehire_store.json.gz
+          key: state-${{ github.run_id }}
+
+      # Publish the same way tools/deploy_pages.sh does: one force-pushed commit on gh-pages
+      - name: Publish to gh-pages
+        run: |
+          cd site
+          git init -q -b gh-pages
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Dashboard data $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages

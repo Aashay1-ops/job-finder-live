@@ -1,0 +1,31 @@
+# Full freehire.me sweep, twice a week. Takes ~3 hours because freehire throttles sustained use,
+# so it runs apart from the hourly job; the next hourly run adopts its result.
+name: freehire full sweep
+
+on:
+  schedule:
+    - cron: "30 5 * * 1,4"   # Monday and Thursday, 05:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: freehire-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Sweep freehire
+        run: python src/freehire.py --full
+      - uses: actions/cache/save@v4
+        with:
+          path: data/freehire_full.json.gz
+          key: full-${{ github.run_id }}
