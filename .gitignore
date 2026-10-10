@@ -1,0 +1,7 @@
+data/raw/
+data/processed/
+data/freehire_*.json.gz
+dashboard/*.json
+site/
+__pycache__/
+.DS_Store
