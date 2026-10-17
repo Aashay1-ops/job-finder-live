@@ -1,0 +1,861 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<style>
+:root { color-scheme: light dark; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px) }
+body { margin: 0; font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif }
+img { max-width: 100% }
+[hidden] { display: none !important }
+</style>
+</head>
+<body>
+<title>Aashay's Job Radar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: headline counts → filter bar → "by state" (tile map + state table) → two panes (job list | detail + tailoring). */
+:root {
+  --bg: #f4f6f5; --surface: #ffffff; --surface-2: #eceff0; --line: #d9dfdf;
+  --fg: #17201f; --muted: #5b6766; --accent: #2b4fc7; --accent-ink: #ffffff; --accent-soft: #e4e9fb;
+  --good: #15803d; --good-soft: #dcf2e3; --ok: #0e7490; --ok-soft: #d8eff4; --low: #6b7574; --low-soft: #e7eaea;
+  --warn: #a45a00; --warn-soft: #fbecd6; --bad: #b42318; --bad-soft: #fbe2df;
+  --a0: #15803d; --a1: #4d9b2f; --a2: #8aab22; --a3: #c99a0e; --a4: #e07b16; --a5: #d4532a; --a6: #b42318;
+  --q0: #eceff0; --q1: #dde4fa; --q2: #b4c4f2; --q3: #829de6; --q4: #4f70d6; --q5: #2442ad; --q-ink-hi: #ffffff;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111615; --surface: #192020; --surface-2: #212a29; --line: #2f3a39;
+  --fg: #e5ebea; --muted: #97a3a2; --accent: #8fa7ff; --accent-ink: #0f1530; --accent-soft: #232d52;
+  --good: #5fd08a; --good-soft: #17331f; --ok: #5cc6dd; --ok-soft: #13303a; --low: #9aa5a4; --low-soft: #262f2f;
+  --warn: #f0a648; --warn-soft: #3a2a12; --bad: #ff8b7d; --bad-soft: #3d1c19;
+  --a0: #4fc77a; --a1: #7fcf52; --a2: #b5cf45; --a3: #ecbf3a; --a4: #f59a3e; --a5: #f2734a; --a6: #ff6b5b;
+  --q0: #212a29; --q1: #1f2a48; --q2: #2a3e7a; --q3: #3f5cb0; --q4: #6585e0; --q5: #a3b8ff; --q-ink-hi: #0f1530; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111615; --surface: #192020; --surface-2: #212a29; --line: #2f3a39;
+  --fg: #e5ebea; --muted: #97a3a2; --accent: #8fa7ff; --accent-ink: #0f1530; --accent-soft: #232d52;
+  --good: #5fd08a; --good-soft: #17331f; --ok: #5cc6dd; --ok-soft: #13303a; --low: #9aa5a4; --low-soft: #262f2f;
+  --warn: #f0a648; --warn-soft: #3a2a12; --bad: #ff8b7d; --bad-soft: #3d1c19;
+  --a0: #4fc77a; --a1: #7fcf52; --a2: #b5cf45; --a3: #ecbf3a; --a4: #f59a3e; --a5: #f2734a; --a6: #ff6b5b;
+  --q0: #212a29; --q1: #1f2a48; --q2: #2a3e7a; --q3: #3f5cb0; --q4: #6585e0; --q5: #a3b8ff; --q-ink-hi: #0f1530; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--body); }
+.wrap { max-width: 1480px; margin: 0 auto; padding-inline: 20px; padding-block: 20px 40px; display: grid; gap: 16px }
+@media (max-width: 600px) { .wrap { padding-inline: 16px } }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0 }
+h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.01em }
+h2 { font-size: 18px; font-weight: 700 }
+h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted) }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums }
+button, select, input { font: inherit; color: inherit }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+a { color: var(--accent) }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px }
+
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 24px }
+header p { margin: 4px 0 0; color: var(--muted); max-width: 78ch }
+.stamp { font-family: var(--mono); font-size: 12px; color: var(--muted) }
+.refresh { display: grid; gap: 6px; justify-items: end; text-align: right }
+.tokenbox { padding: 12px 14px; text-align: left; max-width: 420px; display: grid; gap: 6px; font-size: 13px }
+.tokenbox ol { margin: 0; padding-left: 18px; display: grid; gap: 2px }
+.tokenbox input { padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); width: 100% }
+@media (max-width: 700px) { .refresh { justify-items: start; text-align: left } }
+.banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; background: var(--accent-soft); border-color: var(--accent) }
+
+/* headline counts, grouped: total | job type | work mode */
+.counts { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 4fr) minmax(0, 3fr); gap: 12px }
+@media (max-width: 1000px) { .counts { grid-template-columns: minmax(0, 1fr) } }
+.group { padding: 12px 14px; display: grid; gap: 8px; min-width: 0 }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px }
+.stat { border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; text-align: left; background: none; cursor: pointer; min-width: 0 }
+.stat:hover { background: var(--surface-2) }
+.stat[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent) }
+.stat .big { font-family: var(--mono); font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; display: block }
+.stat .lbl { font-size: 12px; color: var(--muted) }
+.total .big { font-size: 30px }
+
+/* freshness: posting age + reposts, each a segmented bar whose legend items filter */
+.fresh { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px }
+@media (max-width: 1000px) { .fresh { grid-template-columns: minmax(0, 1fr) } }
+.fresh .group { gap: 10px }
+.seg { display: flex; height: 14px; gap: 2px; border-radius: 4px; overflow: hidden }
+.seg span { display: block; height: 100%; min-width: 0 }
+.legend { display: flex; flex-wrap: wrap; gap: 4px }
+.leg { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 3px 8px; border: 1px solid transparent; border-radius: 6px; background: none; cursor: pointer; color: var(--fg) }
+.leg:hover { background: var(--surface-2) }
+.leg[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent) }
+.leg .num { color: var(--muted) }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none }
+
+/* filters */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px }
+.filters input[type=search] { flex: 1 1 240px; min-width: 0; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg) }
+.filters select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); max-width: 100% }
+.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; user-select: none; background: var(--bg) }
+.toggle:has(input:checked) { background: var(--accent-soft); border-color: var(--accent) }
+.toggle input { margin: 0; accent-color: var(--accent) }
+.count { margin-left: auto; font-size: 13px; color: var(--muted) }
+.linkbtn { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 4px; font-size: 13px }
+
+/* by state */
+.bystate { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 16px; padding: 16px }
+@media (max-width: 1000px) { .bystate { grid-template-columns: minmax(0, 1fr) } }
+.bystate .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 12px; grid-column: 1 / -1 }
+.bystate .head p { margin: 0; color: var(--muted); font-size: 13px }
+.map { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 3px; align-content: start; position: relative }
+.tile { aspect-ratio: 1; max-width: 100%; border: 0; border-radius: 4px; display: grid; place-content: center; text-align: center; cursor: pointer; padding: 0; line-height: 1.05; font-size: clamp(8px, 1vw, 12px) }
+.tile b { font-family: var(--display); font-weight: 700; font-size: 1.05em }
+.tile span { font-family: var(--mono); font-size: .82em; opacity: .9 }
+.tile.hi { color: var(--q-ink-hi) }
+.tile.lo { color: var(--fg) }
+.tile[aria-pressed="true"] { outline: 2px solid var(--fg); outline-offset: 1px }
+.tile:hover { outline: 2px solid var(--accent); outline-offset: 1px }
+@media (max-width: 520px) { .tile span { display: none } }
+.extra { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px }
+.extra .tile { aspect-ratio: auto; padding: 6px 10px; grid-auto-flow: column; gap: 6px; font-size: 12px }
+.scale { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); margin-top: 10px; flex-wrap: wrap }
+.scale i { display: inline-block; width: 22px; height: 10px; border-radius: 2px }
+.tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 12px; padding: 6px 8px; border-radius: 6px; white-space: nowrap; z-index: 3; transform: translate(-50%, calc(-100% - 8px)) }
+.tip .num { font-size: 11.5px }
+.tablewrap { overflow: auto; max-height: 440px; border: 1px solid var(--line); border-radius: 8px; min-width: 0 }
+table { border-collapse: collapse; width: 100%; font-size: 13px }
+th, td { padding: 6px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line) }
+th:first-child, td:first-child { text-align: left }
+thead th { position: sticky; top: 0; background: var(--surface-2); font-weight: 600; font-size: 12px; cursor: pointer; user-select: none }
+thead th[aria-sort] { color: var(--accent) }
+tbody tr { cursor: pointer }
+tbody tr:hover { background: var(--surface-2) }
+tbody tr[aria-selected="true"] { background: var(--accent-soft) }
+td.zero { color: var(--muted); opacity: .5 }
+
+/* list + detail */
+.panes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 16px; align-items: start }
+@media (max-width: 960px) { .panes { grid-template-columns: minmax(0, 1fr) } }
+.list { overflow: hidden }
+.row { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; padding: 12px 14px 12px 16px; position: relative; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; cursor: pointer; width: 100% }
+.row:hover { background: var(--surface-2) }
+.row .stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 5px }
+.chip.grade { display: inline-flex; align-items: center; gap: 5px; color: var(--fg); background: var(--surface-2) }
+.row[aria-current="true"] { background: var(--accent-soft) }
+.fit { font-family: var(--mono); font-weight: 500; font-size: 17px; text-align: center; border-radius: 6px; padding: 6px 0; align-self: start; font-variant-numeric: tabular-nums }
+.fit small { display: block; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; font-family: var(--body); font-weight: 600 }
+.f-strong { background: var(--good-soft); color: var(--good) }
+.f-good { background: var(--ok-soft); color: var(--ok) }
+.f-low { background: var(--low-soft); color: var(--low) }
+.row .t { font-weight: 600; overflow-wrap: anywhere }
+.row .m { color: var(--muted); font-size: 13px; overflow-wrap: anywhere }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px }
+.chip { font-size: 11.5px; padding: 1px 7px; border-radius: 4px; background: var(--surface-2); color: var(--muted); white-space: nowrap }
+.chip.res { background: var(--accent-soft); color: var(--accent); font-weight: 500 }
+.chip.type { background: var(--surface-2); color: var(--fg); font-weight: 500 }
+.chip.warn { background: var(--warn-soft); color: var(--warn) }
+.chip.bad { background: var(--bad-soft); color: var(--bad) }
+.chip.good { background: var(--good-soft); color: var(--good) }
+.more { padding: 12px; text-align: center }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-weight: 500; text-decoration: none; color: var(--fg) }
+.btn:hover { border-color: var(--accent) }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent) }
+.btn:disabled { opacity: .55; cursor: default }
+.empty { padding: 32px 16px; text-align: center; color: var(--muted) }
+.detail { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); max-height: calc(100vh - 24px); overflow: auto; padding: 18px; display: grid; gap: 18px; min-width: 0 }
+@media (max-width: 960px) {
+  .detail { position: fixed; inset: 0; max-height: none; border-radius: 0; z-index: 10; padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px) }
+  .detail:not(.open) { display: none }
+}
+.back { display: none } @media (max-width: 960px) { .back { display: inline-flex; justify-self: start } }
+.dhead { display: grid; gap: 6px }
+.dhead .m { color: var(--muted) }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px }
+.facts div { background: var(--bg); border-radius: 6px; padding: 8px 10px; min-width: 0 }
+.facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted) }
+.facts dd { margin: 0; font-weight: 500; overflow-wrap: anywhere }
+.facts dd small { color: var(--muted); font-weight: 400 }
+.actions { display: flex; flex-wrap: wrap; gap: 8px }
+.bars { display: grid; gap: 7px }
+.bar { display: grid; grid-template-columns: minmax(0, 190px) minmax(0, 1fr) 34px; gap: 10px; align-items: center; font-size: 13px }
+.bar .track { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden }
+.bar .track span { display: block; height: 100%; border-radius: 4px; background: var(--q3) }
+.bar.best .track span { background: var(--accent) }
+.bar.best { font-weight: 600 }
+.bar .num { text-align: right }
+.note { font-size: 12.5px; color: var(--muted); margin: 0 }
+.flags { display: grid; gap: 6px }
+.flag { padding: 8px 10px; border-radius: 6px; font-size: 13px }
+.flag.bad { background: var(--bad-soft); color: var(--bad) }
+.flag.warn { background: var(--warn-soft); color: var(--warn) }
+.flag.good { background: var(--good-soft); color: var(--good) }
+.jd { white-space: pre-wrap; font-size: 13px; color: var(--muted); max-height: 300px; overflow: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; overflow-wrap: anywhere }
+.tabs { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--line) }
+.tabs button { border: 0; background: none; padding: 8px 12px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; font-weight: 500 }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent) }
+.doc { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; font-size: 13px; overflow-wrap: anywhere; max-height: 520px; overflow: auto }
+.doc h1 { font-size: 19px; margin-bottom: 2px } .doc h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; margin: 14px 0 4px; padding-bottom: 3px; border-bottom: 1px solid var(--line) }
+.doc p { margin: 3px 0 } .doc ul { margin: 3px 0; padding-left: 18px } .doc li { margin: 2px 0 }
+.doc mark { background: var(--good-soft); color: var(--good); border-radius: 3px; padding: 0 2px }
+.doc em { color: var(--muted) }
+.status { font-size: 13px; color: var(--muted); min-height: 1.5em }
+.placeholder { display: grid; place-items: center; min-height: 260px; text-align: center; color: var(--muted) }
+@media (prefers-reduced-motion: no-preference) { .row, .btn, .stat, .tile { transition: background .12s, border-color .12s } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Job Radar</h1>
+      <p>Live US job openings, updated every 6 hours: every internship and co-op, plus full-time roles in tech fields. Pulled from <span id="h-src">237</span> sources (company job boards, the freehire.me aggregator, and Simplify's internship and new-grad lists), sorted by state and scored against your resumes.</p>
+    </div>
+    <div class="refresh">
+      <div class="stamp" id="stamp">Loading jobs…</div>
+      <div class="actions">
+        <button class="btn primary" id="refresh-now">↻ Refresh now</button>
+        <button class="linkbtn" id="token-settings" hidden>Token settings</button>
+      </div>
+      <div class="note" id="refresh-note" aria-live="polite"></div>
+      <form class="card tokenbox" id="token-box" hidden>
+        <strong>Connect the Refresh button (one time)</strong>
+        <ol>
+          <li><a id="token-link" target="_blank" rel="noopener">Create a fine-grained GitHub token ↗</a></li>
+          <li>Repository access: <b>Only select repositories</b> → <span class="num" id="token-repo">job-finder-site</span></li>
+          <li>Repository permissions: <b>Actions → Read and write</b> (nothing else)</li>
+          <li>Generate, copy it, and paste it here:</li>
+        </ol>
+        <input type="password" id="token-input" placeholder="github_pat_…" autocomplete="off" aria-label="GitHub token">
+        <div class="actions"><button class="btn primary" type="submit">Save and refresh</button><button class="btn" type="button" id="token-cancel">Cancel</button><button class="btn" type="button" id="token-forget" hidden>Remove saved token</button></div>
+        <p class="note">Saved only in this browser. It can do nothing except start this site's refresh.</p>
+      </form>
+    </div>
+  </header>
+  <div class="card banner" id="banner" hidden>Newer job data is available. <button class="btn primary" id="reload">Reload</button></div>
+
+  <section class="counts" aria-label="Job counts">
+    <div class="card group total"><h3>US jobs</h3><button class="stat" id="c-all" aria-pressed="false"><span class="big" id="n-all">–</span><span class="lbl">matching filters</span></button></div>
+    <div class="card group"><h3>Job type</h3><div class="tiles" id="c-type"></div></div>
+    <div class="card group"><h3>Work mode</h3><div class="tiles" id="c-mode"></div></div>
+  </section>
+
+  <section class="fresh" aria-label="Posting age and reposts">
+    <div class="card group"><h3>Posting age: green is fresh, red is old</h3><div class="seg" id="seg-age"></div><div class="legend" id="lg-age"></div></div>
+    <div class="card group"><h3>Times reposted: green is never, red is most</h3><div class="seg" id="seg-rep"></div><div class="legend" id="lg-rep"></div></div>
+  </section>
+
+  <section class="card filters" aria-label="Filters">
+    <input type="search" id="q" placeholder="Search title, company, city, skill…" aria-label="Search">
+    <select id="f-state" aria-label="State"><option value="">All states</option></select>
+    <select id="f-level" aria-label="Experience level"><option value="">All levels</option></select>
+    <select id="f-field" aria-label="Field"><option value="">All fields</option></select>
+    <select id="f-sort" aria-label="Sort"><option value="rec">Sort: recommended (fresh + best fit)</option><option value="fit">Sort: best fit</option><option value="new">Sort: newest</option><option value="co">Sort: company</option><option value="old">Sort: oldest</option><option value="rep">Sort: most reposted</option></select>
+    <select id="f-color" aria-label="Row color"><option value="age">Row color: posting age</option><option value="rep">Row color: reposts</option></select>
+    <label class="toggle"><input type="checkbox" id="f-mine"> My 3 tracks only</label>
+    <label class="toggle"><input type="checkbox" id="f-cit"> Hide US-citizen / clearance</label>
+    <label class="toggle"><input type="checkbox" id="f-spon"> Hide “no sponsorship”</label>
+    <label class="toggle"><input type="checkbox" id="f-yrs"> ≤2 yrs experience</label>
+    <label class="toggle"><input type="checkbox" id="f-agg" checked> Hide job boards &amp; staffing agencies</label>
+    <button class="linkbtn" id="reset">Clear all</button>
+  </section>
+
+  <section class="card bystate" aria-label="Jobs by state">
+    <div class="head"><h2 id="st-title">Jobs by state</h2><p>Counts follow every filter above except state. Click a state on the map or in the table to show only its jobs. A job listed in several states counts in each.</p></div>
+    <div>
+      <div class="map" id="map"></div>
+      <div class="extra" id="extra"></div>
+      <div class="scale" id="scale"></div>
+    </div>
+    <div class="tablewrap"><table id="stable"><thead><tr>
+      <th data-k="name">State</th><th data-k="all">Jobs</th><th data-k="t0">Full-time</th><th data-k="t1">Intern</th><th data-k="t2">Co-op</th><th data-k="t3">Part-time</th><th data-k="m2">Remote</th><th data-k="m1">Hybrid</th><th data-k="m0">On-site</th><th data-k="nw">New (≤7d)</th>
+    </tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <div class="panes">
+    <div>
+      <div class="card list" id="list" role="list"><div class="empty">Loading live jobs…</div></div>
+    </div>
+    <aside class="card detail" id="detail" aria-live="polite">
+      <div class="placeholder"><div><h2>Pick a job</h2><p>You'll see its job type, work mode and location, how each of your five resumes scores against it, and a resume tailored to it.</p></div></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v) } catch { return d } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)) } catch {} },
+};
+const STATES = { AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut", DE: "Delaware", DC: "District of Columbia", FL: "Florida", GA: "Georgia", HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland", MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey", NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina", SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming" };
+const SPECIAL = { REMOTE: "Remote (anywhere in US)", NONE: "US, no city listed" };
+const GRID = "AK0,0 ME11,0 WI6,1 VT10,1 NH11,1 WA1,2 ID2,2 MT3,2 ND4,2 MN5,2 IL6,2 MI7,2 NY9,2 MA10,2 OR1,3 NV2,3 WY3,3 SD4,3 IA5,3 IN6,3 OH7,3 PA8,3 NJ9,3 CT10,3 RI11,3 CA1,4 UT2,4 CO3,4 NE4,4 MO5,4 KY6,4 WV7,4 VA8,4 MD9,4 DE10,4 AZ2,5 NM3,5 KS4,5 AR5,5 TN6,5 NC7,5 SC8,5 DC9,5 OK4,6 LA5,6 MS6,6 AL7,6 GA8,6 HI0,7 TX4,7 FL9,7"
+  .split(" ").map(s => { const [c, r] = s.slice(2).split(","); return { st: s.slice(0, 2), c: +c, r: +r } });
+const BINS = [1, 25, 100, 400, 1500]; // tile shade thresholds (job counts)
+const PAGE = 80;
+const AGE_BINS = [3, 7, 14, 30, 60, 120, Infinity];
+const AGE_LABELS = ["≤3 days", "4–7 days", "8–14 days", "15–30 days", "31–60 days", "61–120 days", "120+ days"];
+const REP_LABELS = ["Never", "1×", "2×", "3×", "4× or more"];
+const REP_COLOR = [0, 2, 4, 5, 6]; // repost bucket → step on the same green→red grade
+const TODAY = new Date(); TODAY.setHours(0, 0, 0, 0);
+function daysAgo(iso) { return iso ? Math.max(0, Math.round((TODAY - new Date(iso + "T00:00:00")) / 864e5)) : null }
+function ageBin(d) { return d == null ? 6 : AGE_BINS.findIndex(b => d <= b) }
+function ageText(d) { return d == null ? "date unknown" : d === 0 ? "today" : d === 1 ? "1 day ago" : d < 60 ? d + " days ago" : d < 730 ? Math.round(d / 30) + " months ago" : Math.round(d / 365) + " years ago" }
+function gradeAge(j) { return `var(--a${j.ageBin})` }
+function gradeRep(j) { return `var(--a${REP_COLOR[j.repBin]})` }
+const SHORT_RES = { ai: "AI/ML/CV", robotics: "Robotics", test: "Test/Tech", neu: "Original NEU", v1: "Original v1" };
+const MODE_HOW = { stated: "stated by employer", location: "from the location", inferred: "inferred from description", assumed: "assumed, not stated" };
+
+let META, JOBS = [], VIEW = [], shown = 0, current = null, sample = null, downloads = null, ctl = null;
+const SHARDS = {};
+const F = { types: new Set(), modes: new Set(), ages: new Set(), reps: new Set(), state: "" };
+let sortKey = "all", sortDir = -1;
+
+function fitClass(f) { return f >= 80 ? "f-strong" : f >= 65 ? "f-good" : "f-low" }
+function fitWord(f) { return f >= 80 ? "strong" : f >= 65 ? "good" : "stretch" }
+
+/* ---------- load + decode ---------- */
+let VER = "";
+fetch("meta.json", { cache: "no-store" }).then(r => r.ok ? r.json() : {}).catch(() => ({}))
+  .then(m => { VER = m.fetched_at ? "?v=" + encodeURIComponent(m.fetched_at) : ""; return fetch("jobs.json" + VER) })
+  .then(r => r.json()).then(d => {
+  META = d.meta;
+  // each job is an array in meta.cols order; turn it back into {t, c, l, ...}
+  const cols = META.cols;
+  JOBS = d.jobs.map((row, idx) => {
+    const x = {}; cols.forEach((c, i) => x[c] = row[i]);
+    const states = x.s ? x.s.split(",") : [];
+    const company = META.companies[x.c];
+    return {
+      id: String(idx), title: x.t, company, location: x.l, states, remote: !!x.r, posted: x.p,
+      type: x.ty, mode: x.m, modeSrc: META.mode_src[x.ms], level: x.lv, field: x.f, tracks: x.tr,
+      years: x.y, restricted: !!(x.fl & 1), noSponsor: !!(x.fl & 2), phd: !!(x.fl & 4), sponsors: !!(x.fl & 8), estimate: !!(x.fl & 16), mass: !!(x.fl & 32), fakeFresh: !!(x.fl & 64),
+      reposts: x.rp || 0, firstPosted: x.fp || "", age: daysAgo(x.p), ageBin: ageBin(daysAgo(x.p)), repBin: Math.min(x.rp || 0, 4),
+      scores: x.sc, best: x.b, fit: x.sc[x.b], matched: x.k.map(i => META.skill_names[i]), gaps: x.g.map(i => META.skill_names[i]), shard: Math.floor(idx / META.shard),
+      key: company + "|" + x.t + "|" + x.l,
+      reposter: REPOSTER.test(company) && !NOT_REPOSTER.test(company),
+      // where this job counts on the map: its states, plus Remote, or "no city" when neither
+      buckets: states.length ? (x.r ? [...states, "REMOTE"] : states) : [x.r ? "REMOTE" : "NONE"],
+      hay: (x.t + " " + company + " " + x.l + " " + states.map(s => STATES[s]).join(" ")).toLowerCase(),
+    };
+  });
+  JOBS.forEach(j => j.rank = recommend(j));
+  stamp(); setInterval(stamp, 60e3); setInterval(checkNewer, 10 * 60e3);
+  $("#h-src").textContent = META.sources;
+  META.levels.forEach((l, i) => $("#f-level").insertAdjacentHTML("beforeend", `<option value="${i}">${esc(l)}</option>`));
+  META.fields.forEach((f, i) => $("#f-field").insertAdjacentHTML("beforeend", `<option value="${i}">${esc(f)}</option>`));
+  Object.entries(STATES).sort((a, b) => a[1].localeCompare(b[1])).forEach(([k, v]) => $("#f-state").insertAdjacentHTML("beforeend", `<option value="${k}">${esc(v)}</option>`));
+  Object.entries(SPECIAL).forEach(([k, v]) => $("#f-state").insertAdjacentHTML("beforeend", `<option value="${k}">${esc(v)}</option>`));
+  $("#c-type").innerHTML = META.types.map((t, i) => `<button class="stat" data-type="${i}" aria-pressed="false"><span class="big" id="n-t${i}">–</span><span class="lbl">${esc(t)}</span></button>`).join("");
+  $("#c-mode").innerHTML = META.modes.map((m, i) => `<button class="stat" data-mode="${i}" aria-pressed="false"><span class="big" id="n-m${i}">–</span><span class="lbl">${esc(m)}</span></button>`).join("");
+  $("#map").innerHTML = GRID.map(g => `<button class="tile" data-st="${g.st}" style="grid-column:${g.c + 1};grid-row:${g.r + 1}" aria-pressed="false"><b>${g.st}</b><span class="num"></span></button>`).join("") + `<div class="tip" id="tip" hidden></div>`;
+  $("#extra").innerHTML = Object.entries(SPECIAL).map(([k, v]) => `<button class="tile" data-st="${k}" aria-pressed="false"><b>${esc(v)}</b><span class="num"></span></button>`).join("");
+  $("#scale").innerHTML = `<span>Jobs per state:</span><i style="background:var(--q0)"></i>0` + BINS.map((b, i) => `<i style="background:var(--q${i + 1})"></i>${b.toLocaleString()}${i === BINS.length - 1 ? "+" : ""}`).join("");
+  $("#lg-age").innerHTML = AGE_LABELS.map((l, i) => `<button class="leg" data-age="${i}" aria-pressed="false"><i class="dot" style="background:var(--a${i})"></i>${l} <span class="num" id="n-a${i}"></span></button>`).join("");
+  $("#lg-rep").innerHTML = REP_LABELS.map((l, i) => `<button class="leg" data-rep="${i}" aria-pressed="false"><i class="dot" style="background:var(--a${REP_COLOR[i]})"></i>${l} <span class="num" id="n-r${i}"></span></button>`).join("");
+  restore();
+  render();
+}).catch(() => { $("#list").innerHTML = `<div class="empty">Couldn't load jobs.json. Re-run <span class="num">python3 src/score_jobs.py</span> and republish.</div>` });
+
+/* ---------- "recommended" order: fit, discounted by age, boosted for relevance ---------- */
+// "Research Scientist Intern" at large companies is almost always a PhD-track role
+// job boards and staffing agencies that relist other employers' jobs (not the real employer)
+const REPOSTER = /jobline|staffing|recruit(ing|ment|ers?)\b|\btalent (solutions|partners|group|acquisition)|jobgether|lensa|jooble|\bdice\b|careerbuilder|ziprecruiter|hiring ?cafe|whatjobs|adzuna|manpower|randstad|adecco|kforce|robert half|aerotek|teksystems|insight global|kelly services|system one|apex systems|cybercoders|motion recruitment|actalent|collabera|\bhays\b|allegis|jobot|search (group|partners)|placement|workforce solutions|employment (agency|services)/i;
+const NOT_REPOSTER = /^smartrecruiters/i; // a software company, not an agency
+const PHD_TITLE = /\bph\.?\s?d\b|post-?doc|doctoral|research scientist,? intern|research scientist internship/i, UG_TITLE = /\bundergrad/i;
+const FRESH = [1.0, 0.97, 0.92, 0.84, 0.72, 0.58, 0.45]; // by age bucket: <=3d, 4-7d, 8-14d, 15-30d, 31-60d, 61-120d, 120d+
+function recommend(j) {
+  let r = j.fit * FRESH[j.ageBin];
+  if (j.tracks) r *= 1.15;                                 // in one of my three tracks
+  if (j.level === 0 || j.level === 1) r *= 1.1;            // student or entry / new grad
+  else if (j.level === 3) r *= 0.6;                        // senior and above
+  if (j.restricted || j.noSponsor) r *= 0.5;               // likely closed to a visa holder: sink, don't hide
+  if (PHD_TITLE.test(j.title)) r *= 0.4;                   // PhD / postdoc roles: not open to an M.S. student
+  else if (UG_TITLE.test(j.title)) r *= 0.5;               // undergrad-only roles
+  if (j.reposts >= 3) r *= 0.85;
+  if (j.mass) r *= 0.85;
+  if (j.reposter) r *= 0.6;                                // a relisting, not the employer's own posting
+  if (j.years != null && j.years > 2) r *= 0.75;
+  return Math.round(r * 10) / 10;
+}
+
+/* ---------- freshness of the data itself ---------- */
+function stamp() {
+  const when = new Date(META.fetched_at), mins = Math.max(0, Math.round((Date.now() - when) / 60e3));
+  const ago = mins < 1 ? "just now" : mins < 60 ? mins + " min ago" : mins < 1440 ? Math.round(mins / 60) + " h ago" : Math.round(mins / 1440) + " days ago";
+  $("#stamp").textContent = "Updated " + ago + " (" + when.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + ") · refreshes every 6 hours";
+}
+function checkNewer() {
+  // meta.json is a few bytes, so polling it is cheap; jobs.json is only re-downloaded on Reload
+  fetch("meta.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(m => {
+    if (m && m.fetched_at && m.fetched_at !== META.fetched_at) $("#banner").hidden = false;
+  }).catch(() => {});
+}
+$("#reload").addEventListener("click", () => location.reload());
+/* ---------- Refresh now: start the GitHub workflow, follow it, then load the new data ---------- */
+const GH = (() => {
+  const onPages = location.hostname.endsWith(".github.io");
+  return { owner: onPages ? location.hostname.split(".")[0] : "aashay1-ops",
+           repo: onPages ? (location.pathname.split("/")[1] || "job-finder-site") : "job-finder-site", wf: "refresh.yml" };
+})();
+const TOKEN_KEY = "jr-gh-token";
+const getToken = () => { try { return localStorage.getItem(TOKEN_KEY) || "" } catch { return "" } };
+const setToken = t => { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY) } catch {} };
+$("#token-link").href = "https://github.com/settings/personal-access-tokens/new";
+$("#token-repo").textContent = GH.repo;
+$("#token-settings").hidden = !getToken();
+function showTokenBox(show) { $("#token-box").hidden = !show; $("#token-forget").hidden = !getToken(); if (show) $("#token-input").focus() }
+$("#token-settings").onclick = () => showTokenBox($("#token-box").hidden);
+$("#token-cancel").onclick = () => showTokenBox(false);
+$("#token-forget").onclick = () => { setToken(""); $("#token-settings").hidden = true; showTokenBox(false); $("#refresh-note").textContent = "Token removed from this browser." };
+$("#token-box").addEventListener("submit", e => {
+  e.preventDefault();
+  const t = $("#token-input").value.trim();
+  if (!t) return;
+  setToken(t); $("#token-input").value = ""; $("#token-settings").hidden = false; showTokenBox(false); startRefresh();
+});
+$("#refresh-now").onclick = () => getToken() ? startRefresh() : showTokenBox(true);
+
+async function gh(path, opts = {}) {
+  const r = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}${path}`, { ...opts,
+    headers: { Accept: "application/vnd.github+json", Authorization: "Bearer " + getToken(), "X-GitHub-Api-Version": "2022-11-28", ...(opts.headers || {}) } });
+  if (r.status === 401 || r.status === 403) throw { code: "auth" };
+  if (!r.ok) throw { code: "http", status: r.status };
+  return r.status === 204 ? null : r.json();
+}
+let refreshing = false;
+async function startRefresh() {
+  if (refreshing) return;
+  const note = $("#refresh-note"), btn = $("#refresh-now");
+  refreshing = true; btn.disabled = true;
+  const say = t => note.textContent = t;
+  try {
+    const before = new Date(Date.now() - 60e3).toISOString(); // allow for the viewer's clock being off a little
+    say("Starting a refresh…");
+    await gh(`/actions/workflows/${GH.wf}/dispatches`, { method: "POST", body: JSON.stringify({ ref: "main" }) });
+    // find the run that dispatch created (it appears within a few seconds)
+    let run = null;
+    for (let i = 0; i < 12 && !run; i++) {
+      await new Promise(r => setTimeout(r, 4000));
+      const d = await gh(`/actions/workflows/${GH.wf}/runs?event=workflow_dispatch&per_page=5`);
+      run = (d.workflow_runs || []).find(x => x.created_at >= before.slice(0, 19)) || null;
+    }
+    if (!run) { say("The refresh was requested but hasn't started yet. Check back in a few minutes."); return }
+    const t0 = Date.now();
+    while (true) {
+      const r = await gh(`/actions/runs/${run.id}`);
+      const mins = Math.floor((Date.now() - t0) / 60e3);
+      if (r.status === "completed") {
+        if (r.conclusion !== "success") { note.innerHTML = `The refresh didn't finish (${esc(r.conclusion)}). <a href="${esc(r.html_url)}" target="_blank" rel="noopener">See what happened ↗</a>`; return }
+        break;
+      }
+      say(r.status === "queued" ? "Refresh queued (another refresh may be running first)…" : `Refreshing: pulling and scoring jobs (${mins} min so far, usually about 12)…`);
+      await new Promise(res => setTimeout(res, 20e3));
+    }
+    // the site republishes about a minute after the run; wait for the new data, then load it
+    say("Publishing the new data…");
+    for (let i = 0; i < 20; i++) {
+      const m = await (await fetch("meta.json", { cache: "no-store" })).json().catch(() => ({}));
+      if (m.fetched_at && m.fetched_at !== META?.fetched_at) { say("New data ready. Loading…"); location.reload(); return }
+      await new Promise(res => setTimeout(res, 15e3));
+    }
+    say("The refresh finished, but the site is still publishing. Reload this page in a couple of minutes.");
+  } catch (e) {
+    if (e.code === "auth") { say("GitHub rejected the token. It may have expired or lack the Actions permission. Add a new one."); setToken(""); $("#token-settings").hidden = true; showTokenBox(true) }
+    else say("Couldn't reach GitHub. Check your connection and try again.");
+  } finally { refreshing = false; btn.disabled = false }
+}
+
+/* ---------- filter state ---------- */
+const IDS = ["f-agg", "f-level", "f-field", "f-sort", "f-color", "f-mine", "f-cit", "f-spon", "f-yrs"];
+function save() {
+  const o = Object.fromEntries(IDS.map(i => { const el = document.getElementById(i); return [i, el.type === "checkbox" ? el.checked : el.value] }));
+  o.recDefault = true;
+  o.types = [...F.types]; o.modes = [...F.modes]; o.ages = [...F.ages]; o.reps = [...F.reps]; o.state = F.state;
+  store.set("jr2-filters", o);
+}
+function restore() {
+  const o = store.get("jr2-filters", {});
+  if (o["f-sort"] === "fit" && !o.recDefault) o["f-sort"] = "rec"; // move earlier visitors onto the new default once
+  if (!("f-agg" in o)) o["f-agg"] = true;                             // reposters hidden unless the viewer turns it off
+  IDS.forEach(i => { if (i in o) { const el = document.getElementById(i); el.type === "checkbox" ? el.checked = o[i] : el.value = o[i] } });
+  (o.types || []).forEach(t => F.types.add(t)); (o.modes || []).forEach(m => F.modes.add(m));
+  (o.ages || []).forEach(a => F.ages.add(a)); (o.reps || []).forEach(r => F.reps.add(r));
+  F.state = o.state || ""; $("#f-state").value = F.state;
+}
+IDS.forEach(id => document.getElementById(id).addEventListener("change", () => { save(); render() }));
+let qTimer; $("#q").addEventListener("input", () => { clearTimeout(qTimer); qTimer = setTimeout(render, 180) });
+$("#f-state").addEventListener("change", e => setState(e.target.value));
+$("#c-type").addEventListener("click", e => { const b = e.target.closest("[data-type]"); if (!b) return; toggle(F.types, +b.dataset.type) });
+$("#c-mode").addEventListener("click", e => { const b = e.target.closest("[data-mode]"); if (!b) return; toggle(F.modes, +b.dataset.mode) });
+$("#lg-age").addEventListener("click", e => { const b = e.target.closest("[data-age]"); if (b) toggle(F.ages, +b.dataset.age) });
+$("#lg-rep").addEventListener("click", e => { const b = e.target.closest("[data-rep]"); if (b) toggle(F.reps, +b.dataset.rep) });
+$("#c-all").addEventListener("click", () => { F.types.clear(); F.modes.clear(); save(); render() });
+$("#reset").addEventListener("click", () => {
+  F.types.clear(); F.modes.clear(); F.ages.clear(); F.reps.clear(); F.state = ""; $("#f-state").value = ""; $("#q").value = "";
+  IDS.forEach(i => { const el = document.getElementById(i); el.type === "checkbox" ? el.checked = i === "f-agg" : el.selectedIndex = 0 });
+  save(); render();
+});
+function toggle(set, v) { set.has(v) ? set.delete(v) : set.add(v); save(); render() }
+function setState(st) { F.state = F.state === st ? "" : st; $("#f-state").value = F.state; save(); render() }
+$("#map").addEventListener("click", e => { const t = e.target.closest(".tile"); if (t) setState(t.dataset.st) });
+$("#extra").addEventListener("click", e => { const t = e.target.closest(".tile"); if (t) setState(t.dataset.st) });
+$("#stable tbody").addEventListener("click", e => { const r = e.target.closest("tr"); if (r) setState(r.dataset.st) });
+$("#stable thead").addEventListener("click", e => { const th = e.target.closest("th"); if (!th) return; const k = th.dataset.k; sortDir = sortKey === k ? -sortDir : (k === "name" ? 1 : -1); sortKey = k; renderStates() });
+
+/* map tooltip */
+$("#map").addEventListener("pointerover", e => {
+  const t = e.target.closest(".tile"); const tip = $("#tip"); if (!t) return;
+  const a = AGG[t.dataset.st] || blank();
+  tip.innerHTML = `<strong>${esc(STATES[t.dataset.st])}</strong> · <span class="num">${a.all.toLocaleString()}</span> jobs<br><span class="num">${a.t0} full-time · ${a.t1} intern · ${a.t2} co-op</span><br><span class="num">${a.m2} remote · ${a.m1} hybrid · ${a.m0} on-site</span>`;
+  const m = $("#map").getBoundingClientRect(), r = t.getBoundingClientRect();
+  tip.style.left = Math.min(Math.max(r.left - m.left + r.width / 2, 90), m.width - 90) + "px"; tip.style.top = (r.top - m.top) + "px"; tip.hidden = false;
+});
+$("#map").addEventListener("pointerleave", () => $("#tip").hidden = true);
+
+/* ---------- filtering ---------- */
+function ctx() {
+  return { lv: $("#f-level").value, fd: $("#f-field").value, q: $("#q").value.trim().toLowerCase(), mine: $("#f-mine").checked,
+           agg: $("#f-agg").checked, cit: $("#f-cit").checked, spon: $("#f-spon").checked, yrs: $("#f-yrs").checked };
+}
+function passes(j, c, ignore = {}) {
+  if (!ignore.type && F.types.size && !F.types.has(j.type)) return false;
+  if (!ignore.mode && F.modes.size && !F.modes.has(j.mode)) return false;
+  if (!ignore.state && F.state && !j.buckets.includes(F.state)) return false;
+  if (!ignore.age && F.ages.size && !F.ages.has(j.ageBin)) return false;
+  if (!ignore.rep && F.reps.size && !F.reps.has(j.repBin)) return false;
+  if (c.lv !== "" && j.level !== +c.lv) return false;
+  if (c.fd !== "" && j.field !== +c.fd) return false;
+  if (c.mine && !j.tracks) return false;
+  if (c.agg && j.reposter) return false;
+  if (c.cit && j.restricted) return false;
+  if (c.spon && j.noSponsor) return false;
+  if (c.yrs && (j.years ?? 0) > 2) return false;
+  if (c.q && !(j.hay.includes(c.q) || j.matched.some(s => s.toLowerCase().includes(c.q)))) return false;
+  return true;
+}
+function blank() { return { all: 0, t0: 0, t1: 0, t2: 0, t3: 0, m0: 0, m1: 0, m2: 0, nw: 0 } }
+let AGG = {};
+function render() {
+  // one pass: list view, counts for the type/mode tiles (each ignoring its own filter), and per-state aggregates
+  VIEW = []; AGG = {};
+  const tCount = [0, 0, 0, 0], mCount = [0, 0, 0], aCount = AGE_LABELS.map(() => 0), rCount = REP_LABELS.map(() => 0), c = ctx();
+  for (const j of JOBS) {
+    if (passes(j, c, { type: true })) tCount[j.type]++;
+    if (passes(j, c, { mode: true })) mCount[j.mode]++;
+    if (passes(j, c, { age: true })) aCount[j.ageBin]++;
+    if (passes(j, c, { rep: true })) rCount[j.repBin]++;
+    if (passes(j, c, { state: true })) {
+      for (const b of j.buckets) { const a = AGG[b] ||= blank(); a.all++; a["t" + j.type]++; a["m" + j.mode]++; if (j.age != null && j.age <= 7) a.nw++ }
+      if (!F.state || j.buckets.includes(F.state)) VIEW.push(j);
+    }
+  }
+  $("#n-all").textContent = VIEW.length.toLocaleString();
+  tCount.forEach((n, i) => { $("#n-t" + i).textContent = n.toLocaleString(); $(`[data-type="${i}"]`).setAttribute("aria-pressed", F.types.has(i)) });
+  mCount.forEach((n, i) => { $("#n-m" + i).textContent = n.toLocaleString(); $(`[data-mode="${i}"]`).setAttribute("aria-pressed", F.modes.has(i)) });
+  $("#c-all").setAttribute("aria-pressed", !F.types.size && !F.modes.size);
+  renderGrade("age", aCount, i => `var(--a${i})`, AGE_LABELS, F.ages);
+  renderGrade("rep", rCount, i => `var(--a${REP_COLOR[i]})`, REP_LABELS, F.reps);
+  renderMap(); renderStates(); renderList();
+}
+function renderGrade(kind, counts, color, labels, active) {
+  const total = counts.reduce((a, b) => a + b, 0) || 1, pre = kind === "age" ? "a" : "r";
+  $("#seg-" + kind).innerHTML = counts.map((n, i) => n ? `<span style="flex:${n} 1 0;background:${color(i)}" title="${labels[i]}: ${n.toLocaleString()} jobs (${Math.round(100 * n / total)}%)"></span>` : "").join("");
+  counts.forEach((n, i) => { $(`#n-${pre}${i}`).textContent = n.toLocaleString(); $(`[data-${kind}="${i}"]`).setAttribute("aria-pressed", active.has(i)) });
+}
+function shade(n) { let i = 0; while (i < BINS.length && n >= BINS[i]) i++; return i }
+function renderMap() {
+  document.querySelectorAll("#map .tile, #extra .tile").forEach(t => {
+    const n = AGG[t.dataset.st]?.all || 0, q = shade(n);
+    t.style.background = `var(--q${q})`; t.className = "tile " + (q >= 4 ? "hi" : "lo");
+    t.querySelector("span").textContent = n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + "k" : n;
+    t.setAttribute("aria-pressed", F.state === t.dataset.st);
+    t.setAttribute("aria-label", `${STATES[t.dataset.st] || SPECIAL[t.dataset.st]}: ${n} jobs`);
+  });
+  $("#st-title").textContent = F.state ? `Jobs by state · showing ${STATES[F.state] || SPECIAL[F.state]}` : "Jobs by state";
+}
+function renderStates() {
+  const rows = [...Object.keys(STATES), ...Object.keys(SPECIAL)].map(k => ({ k, name: STATES[k] || SPECIAL[k], ...(AGG[k] || blank()) }));
+  rows.sort((a, b) => sortKey === "name" ? sortDir * a.name.localeCompare(b.name) : sortDir * (a[sortKey] - b[sortKey]) || a.name.localeCompare(b.name));
+  document.querySelectorAll("#stable th").forEach(th => th.dataset.k === sortKey ? th.setAttribute("aria-sort", sortDir > 0 ? "ascending" : "descending") : th.removeAttribute("aria-sort"));
+  const cell = v => `<td class="num ${v ? "" : "zero"}">${v.toLocaleString()}</td>`;
+  $("#stable tbody").innerHTML = rows.map(r => `<tr data-st="${r.k}" aria-selected="${F.state === r.k}"><td>${esc(r.name)}</td>${cell(r.all)}${cell(r.t0)}${cell(r.t1)}${cell(r.t2)}${cell(r.t3)}${cell(r.m2)}${cell(r.m1)}${cell(r.m0)}${cell(r.nw)}</tr>`).join("");
+}
+
+/* ---------- list ---------- */
+function renderList() {
+  const s = $("#f-sort").value;
+  if (s === "new") VIEW.sort((a, b) => (b.posted || "").localeCompare(a.posted || "") || b.fit - a.fit);
+  else if (s === "co") VIEW.sort((a, b) => a.company.localeCompare(b.company) || b.fit - a.fit);
+  else if (s === "old") VIEW.sort((a, b) => (a.posted || "").localeCompare(b.posted || "") || b.fit - a.fit);
+  else if (s === "rep") VIEW.sort((a, b) => b.reposts - a.reposts || b.fit - a.fit);
+  else if (s === "fit") VIEW.sort((a, b) => b.fit - a.fit);
+  else VIEW.sort((a, b) => b.rank - a.rank || b.fit - a.fit);
+  shown = 0;
+  $("#list").innerHTML = VIEW.length ? "" : `<div class="empty">No jobs match these filters. Try "Clear all".</div>`;
+  more();
+}
+function rowHTML(j) {
+  const f = [];
+  if (j.restricted) f.push(`<span class="chip bad">US citizen / clearance</span>`);
+  if (j.noSponsor) f.push(`<span class="chip bad">No sponsorship</span>`);
+  if (j.sponsors) f.push(`<span class="chip good">Sponsors visas</span>`);
+  if (j.years != null && j.years > 2) f.push(`<span class="chip warn">${j.years}+ yrs</span>`);
+  if (j.mass) f.push(`<span class="chip warn">Mass posting</span>`);
+  if (j.reposter) f.push(`<span class="chip warn">Job board / agency</span>`);
+  if (j.fakeFresh) f.push(`<span class="chip warn">Date refreshed</span>`);
+  const where = j.states.length ? j.states.join(", ") + (j.remote ? " · or remote" : "") : (j.remote ? "Remote, US" : "US");
+  const stripe = $("#f-color").value === "rep" ? gradeRep(j) : gradeAge(j);
+  const age = `<span class="chip grade"><i class="dot" style="background:${gradeAge(j)}"></i>${esc(ageText(j.age))}</span>`;
+  const rp = j.reposts ? `<span class="chip grade"><i class="dot" style="background:${gradeRep(j)}"></i>Reposted ${j.reposts}×</span>` : "";
+  return `<button class="row" role="listitem" data-id="${esc(j.id)}" aria-current="${current?.id === j.id}">
+    <span class="stripe" style="background:${stripe}" aria-hidden="true"></span>
+    <div class="fit ${fitClass(j.fit)}">${j.fit}<small>${fitWord(j.fit)}</small></div>
+    <div><div class="t">${esc(j.title)}</div>
+      <div class="m">${esc(j.company)} · ${esc(j.location || where)}</div>
+      <div class="chips">${age}${rp}<span class="chip type">${esc(META.types[j.type])}</span><span class="chip type">${esc(META.modes[j.mode])}</span><span class="chip">${esc(where)}</span><span class="chip res">Use: ${esc(SHORT_RES[META.resumes[j.best].key])}</span>${f.join("")}</div>
+    </div></button>`;
+}
+function more() {
+  const chunk = VIEW.slice(shown, shown + PAGE); shown += chunk.length;
+  $("#list .more")?.remove();
+  $("#list").insertAdjacentHTML("beforeend", chunk.map(rowHTML).join(""));
+  if (shown < VIEW.length) $("#list").insertAdjacentHTML("beforeend", `<div class="more"><button class="btn" id="more">Show ${Math.min(PAGE, VIEW.length - shown)} more <span class="num" style="color:var(--muted)">(${(VIEW.length - shown).toLocaleString()} left)</span></button></div>`);
+}
+$("#list").addEventListener("click", e => {
+  if (e.target.closest("#more")) return more();
+  const row = e.target.closest(".row"); if (!row) return;
+  document.querySelectorAll(".row[aria-current=true]").forEach(r => r.setAttribute("aria-current", "false"));
+  row.setAttribute("aria-current", "true");
+  openJob(JOBS[+row.dataset.id]);
+});
+
+/* ---------- tiny markdown renderer for resumes ---------- */
+function inline(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/(^|\s)_(.+?)_(?=\s|$|[.,;])/g, "$1<em>$2</em>") }
+function md(src, highlight = []) {
+  let html = "", inList = false;
+  for (const raw of src.split("\n")) {
+    const l = raw.trimEnd(), bullet = /^\s*[-•*]\s+/.test(l);
+    if (!bullet && inList) { html += "</ul>"; inList = false }
+    if (/^#\s/.test(l)) html += `<h1>${inline(l.slice(2))}</h1>`;
+    else if (/^##+\s/.test(l)) html += `<h2>${inline(l.replace(/^##+\s/, ""))}</h2>`;
+    else if (bullet) { if (!inList) { html += "<ul>"; inList = true } html += `<li>${inline(l.replace(/^\s*[-•*]\s+/, ""))}</li>` }
+    else if (/^-{3,}$/.test(l) || !l.trim()) continue;
+    else html += `<p>${inline(l)}</p>`;
+  }
+  if (inList) html += "</ul>";
+  const pats = highlight.map(n => META.skills[n]).filter(Boolean);
+  if (pats.length) {
+    const rx = new RegExp(pats.map(r => `(?:${r})`).join("|"), "gi");
+    html = html.replace(/>([^<]+)</g, (m, t) => ">" + t.replace(rx, x => `<mark>${x}</mark>`) + "<");
+  }
+  return html;
+}
+
+/* ---------- detail ---------- */
+async function details(j) {
+  // [link, description] for one job, from the details file holding its row
+  SHARDS[j.shard] ||= fetch(`details-${j.shard}.json${VER}`).then(r => r.json()).catch(() => ({}));
+  return (await SHARDS[j.shard])[j.id] || ["", ""];
+}
+async function description(j) { return (await details(j))[1] }
+function openJob(j) {
+  current = j; ctl?.abort();
+  const d = $("#detail"); d.classList.add("open");
+  const order = j.scores.map((v, i) => [i, v]).sort((a, b) => b[1] - a[1]);
+  const flags = [];
+  if (j.restricted) flags.push(`<div class="flag bad">Mentions US citizenship, a security clearance or export-control (ITAR) rules. Check before applying if you're on a student visa.</div>`);
+  if (j.noSponsor) flags.push(`<div class="flag bad">Says it can't sponsor visas.</div>`);
+  if (j.sponsors) flags.push(`<div class="flag good">Listed as offering visa sponsorship.</div>`);
+  if (j.years != null && j.years > 2) flags.push(`<div class="flag warn">Asks for ${j.years}+ years of experience.</div>`);
+  if (j.reposter) flags.push(`<div class="flag warn">${esc(j.company)} is a job board or staffing agency relisting this role, not the employer itself. Find the original posting on the employer's own careers site before applying.</div>`);
+  if (j.mass) flags.push(`<div class="flag warn">The same listing is posted in many places at once (mass posting). These often get far more applicants per opening.</div>`);
+  if (j.fakeFresh) flags.push(`<div class="flag warn">The employer refreshed this posting's date without really reposting it, so it's older than its date suggests. The age shown here uses the earlier date.</div>`);
+  if (j.reposts >= 2) flags.push(`<div class="flag warn">This job has been posted ${j.reposts + 1} separate times since ${esc(j.firstPosted)}. That can mean high turnover, a hard-to-fill role, or a listing that's always open; worth asking about.</div>`);
+  if (j.phd) flags.push(`<div class="flag warn">Mentions a PhD (required or preferred; read the posting).</div>`);
+  const tailored = store.get("jr-tailored-" + j.key, null);
+  const where = j.states.length ? j.states.map(s => STATES[s]).join(", ") : "Not tied to a state";
+  d.innerHTML = `
+    <button class="btn back" id="back">← All jobs</button>
+    <div class="dhead">
+      <h2>${esc(j.title)}</h2>
+      <div class="m">${esc(j.company)} · ${esc(j.location || where)}</div>
+      <div class="actions"><a class="btn primary" id="open-link" target="_blank" rel="noopener" aria-disabled="true">Loading link…</a></div>
+    </div>
+    <dl class="facts">
+      <div><dt>Job type</dt><dd>${esc(META.types[j.type])}</dd></div>
+      <div><dt>Work mode</dt><dd>${esc(META.modes[j.mode])} <small>(${esc(MODE_HOW[j.modeSrc])})</small></dd></div>
+      <div><dt>States</dt><dd>${esc(where)}${j.remote ? " <small>· remote OK</small>" : ""}</dd></div>
+      <div><dt>Level</dt><dd>${esc(META.levels[j.level])}</dd></div>
+      <div><dt>Field</dt><dd>${esc(META.fields[j.field])}</dd></div>
+      <div><dt>Posted</dt><dd><i class="dot" style="background:${gradeAge(j)}"></i> ${esc(ageText(j.age))} <small class="num">${esc(j.posted || "")}</small></dd></div>
+      <div><dt>Reposted</dt><dd><i class="dot" style="background:${gradeRep(j)}"></i> ${j.reposts ? j.reposts + "×" : "Never seen before"}${j.firstPosted ? ` <small>· first posted <span class="num">${esc(j.firstPosted)}</span></small>` : ""}</dd></div>
+    </dl>
+    ${flags.length ? `<div class="flags">${flags.join("")}</div>` : ""}
+    ${peopleLinks(j)}
+    <div><h3>Resume fit (0–100)</h3>
+      <div class="bars" style="margin-top:8px">${order.map(([i, v]) => `<div class="bar ${i === j.best ? "best" : ""}"><span>${esc(META.resumes[i].label)}${i === j.best ? " ★" : ""}</span><div class="track"><span style="width:${v}%"></span></div><span class="num">${v}</span></div>`).join("")}</div>
+      <p class="note" style="margin-top:8px">${j.estimate ? "This source has no job description, so the score is an estimate from the title only. " : ""}Score = 75% how many of the posting's listed skills the resume shows (weighted) + 25% whether the resume's focus matches the job's track.</p>
+    </div>
+    <div style="display:grid;gap:10px">
+      <div><h3>You already show</h3><div class="chips">${j.matched.length ? j.matched.map(s => `<span class="chip good">${esc(s)}</span>`).join("") : `<span class="note">No listed skills matched.</span>`}</div></div>
+      <div><h3>Asked for, not on your resume</h3><div class="chips">${j.gaps.length ? j.gaps.map(s => `<span class="chip warn">${esc(s)}</span>`).join("") : `<span class="note">No gaps from the skills we track.</span>`}</div></div>
+    </div>
+    <div style="display:grid;gap:10px">
+      <div class="tabs" role="tablist">
+        <button role="tab" id="t-best" aria-selected="${!tailored}">Best resume as-is</button>
+        <button role="tab" id="t-tail" aria-selected="${!!tailored}">Tailored for this job</button>
+        <button role="tab" id="t-jd" aria-selected="false">Job description</button>
+      </div>
+      <div id="tabbody"></div>
+    </div>`;
+  $("#back").onclick = () => d.classList.remove("open");
+  const tabs = { "t-best": showBest, "t-tail": showTailor, "t-jd": showJD };
+  for (const id in tabs) $("#" + id).onclick = () => { for (const t in tabs) $("#" + t).setAttribute("aria-selected", t === id); tabs[id](j) };
+  (tailored ? showTailor : showBest)(j);
+  d.scrollTop = 0;
+  details(j).then(([url]) => {
+    const a = $("#open-link"); if (current !== j || !a) return;
+    if (url) { a.href = url; a.textContent = "Open posting ↗"; a.removeAttribute("aria-disabled") }
+    else a.textContent = "Link unavailable";
+  });
+}
+/* ---------- people to contact: search links the viewer opens themselves ---------- */
+const TEAM_WORDS = ["machine learning", "robotics embedded", "test engineering"]; // by track bit
+function teamWord(j) {
+  for (let i = 0; i < 3; i++) if (j.tracks & (1 << i)) return TEAM_WORDS[i];
+  return { "AI, ML & Data": "machine learning", "Robotics & Embedded": "embedded", "Hardware, Electrical & Mechanical": "hardware engineering",
+           "Test, Quality & Manufacturing": "test engineering", "Software": "software engineering" }[META.fields[j.field]] || "";
+}
+function peopleLinks(j) {
+  const co = j.company, team = teamWord(j), student = j.type === 1 || j.type === 2;
+  const li = q => "https://www.linkedin.com/search/results/people/?keywords=" + encodeURIComponent(q);
+  const g = q => "https://www.google.com/search?q=" + encodeURIComponent(q);
+  const links = [
+    [student ? "University recruiters" : "Technical recruiters", li(`${co} ${student ? "university recruiter" : "technical recruiter"}`)],
+    ["Talent acquisition", li(`${co} talent acquisition`)],
+    [team ? `${team[0].toUpperCase() + team.slice(1)} managers` : "Engineering managers", li(`${co} ${team || "engineering"} manager`)],
+    ["Same search via Google", g(`site:linkedin.com/in "${co}" "${student ? "university recruiter" : "recruiter"}"`)],
+    ["Company leadership", g(`"${co}" leadership team CEO`)],
+  ];
+  return `<div><h3>Find people to contact</h3>
+    <div class="chips" style="margin-top:6px">${links.map(([t, u]) => `<a class="chip res" href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a>`).join("")}
+      <button class="chip res" id="cp-note" style="border:0;cursor:pointer">Copy a connection note</button></div>
+    <p class="note" style="margin-top:6px">These open a search on LinkedIn or Google for you to review; nothing is collected. Recruiters for ${student ? "intern and co-op programs" : "this kind of role"} are usually the most responsive. LinkedIn shows email and phone only to a person's connections, so connect with a short note first.</p></div>`;
+}
+function connectionNote(j) {
+  const skills = j.matched.slice(0, 2).join(" and ") || "[your most relevant skill]";
+  // LinkedIn caps connection notes at 300 characters: drop whole sentences, never cut mid-word
+  const parts = [`Hi [Name], I'm an M.S. Applied AI student at Northeastern applying for the ${j.title} role at ${j.company}.`,
+    `My work in ${skills} lines up closely with it.`, `I'd value a quick pointer on what the team looks for.`, `Thank you!`];
+  for (const drop of [[], [2], [1, 2]]) {
+    const t = parts.filter((_, i) => !drop.includes(i)).join(" ");
+    if (t.length <= 300) return t;
+  }
+  return `Hi [Name], I'm an M.S. Applied AI student at Northeastern applying for a role at ${j.company}. Thank you!`;
+}
+document.addEventListener("click", e => {
+  if (e.target.id === "cp-note" && current) {
+    navigator.clipboard.writeText(connectionNote(current)).then(() => e.target.textContent = "Copied (under 300 characters)")
+      .catch(() => e.target.textContent = "Copy blocked; select the text in the job panel");
+  }
+});
+
+function showBest(j) {
+  const r = META.resumes[j.best];
+  if (!r.text) {
+    $("#tabbody").innerHTML = `<p class="note">Your <strong>${esc(r.label)}</strong> scores highest here. Resume text isn't published on this public page; open it in your private <span class="num">job-finder</span> repo under <span class="num">resumes/</span>.</p><div class="chips" style="margin-top:8px">${j.matched.map(s => `<span class="chip good">${esc(s)}</span>`).join("")}</div>`;
+    return;
+  }
+  $("#tabbody").innerHTML = `<p class="note">Your <strong>${esc(r.label)}</strong> scores highest here. Skills the posting asks for are highlighted.</p>
+    <div class="doc" style="margin-top:8px">${md(r.text, j.matched)}</div>
+    <div class="actions" style="margin-top:10px"><button class="btn" id="cp-best">Copy text</button></div><div class="status" id="st"></div>`;
+  $("#cp-best").onclick = () => copy(r.text);
+}
+async function showJD(j) {
+  $("#tabbody").innerHTML = `<div class="jd">Loading description…</div>`;
+  const text = await description(j);
+  if (current !== j) return;
+  $("#tabbody").innerHTML = text
+    ? `<div class="jd">${esc(text)}</div><p class="note" style="margin-top:6px">First 1,800 characters. Open the posting for the full text.</p>`
+    : `<div class="jd">This source (Simplify's lists) doesn't include descriptions. Open the posting to read it.</div>`;
+}
+
+/* ---------- tailoring ---------- */
+function buildPrompt(j, jd) {
+  const best = META.resumes[j.best];
+  return `You are tailoring a one-page resume for a specific job. The candidate is an M.S. Applied AI student at Northeastern University.
+
+STRICT RULES
+- Use ONLY facts in the MASTER RESUME below. Never invent employers, dates, numbers, tools, coursework or results.
+- Lines marked TODO in the master are unknown: leave them as [TODO: ...] placeholders, never fill them in.
+- You may reorder sections and bullets, cut irrelevant ones, merge bullets, and reword so the job's own terms appear wherever the candidate's real experience supports them.
+- Keep it to one page: summary (2 lines), education, skills (most relevant first), 2-3 experiences, 2 projects.
+
+OUTPUT (Markdown only, nothing before it):
+1. The tailored resume, using "# Name", "## Section" and "- bullet" lines.
+2. Then a line "## Notes for Aashay" with 3-5 bullets: what you emphasized, and which asks in the job (${j.gaps.join(", ") || "none detected"}) the resume can't honestly claim yet, with one concrete way to close each gap.
+
+JOB: ${j.title} at ${j.company} (${j.location}) · ${META.types[j.type]} · ${META.modes[j.mode]}
+JOB DESCRIPTION (excerpt):
+${jd ? jd.slice(0, 1800) : "(No description available. Tailor from the job title, company and type.)"}
+
+STARTING VARIANT (scored best for this job: ${best.label}):
+${best.text || "[Paste your " + best.label + " here, or say to start from the master resume.]"}
+
+MASTER RESUME (source of truth):
+${META.master || "[Paste your master resume here before sending this prompt.]"}`;
+}
+async function cap(name) { try { return (await window.claude?.use?.(name)) ?? null } catch { return null } }
+async function showTailor(j) {
+  const saved = store.get("jr-tailored-" + j.key, null);
+  $("#tabbody").innerHTML = `
+    <p class="note">Claude rewrites your <strong>${esc(META.resumes[j.best].label)}</strong> for this posting. It uses only facts from your master resume and leaves unknowns as TODO.</p>
+    <div class="actions" style="margin-top:8px">
+      <button class="btn primary" id="go">${saved ? "Regenerate" : "Tailor my resume"}</button>
+      <button class="btn" id="stop" hidden>Stop</button>
+      <button class="btn" id="cp" ${saved ? "" : "hidden"}>Copy</button>
+      <button class="btn" id="dl" hidden>Save .md</button>
+      <button class="btn" id="cp-prompt" hidden>Copy prompt for Claude</button>
+    </div>
+    <div class="status" id="st"></div>
+    <div class="doc" id="out" ${saved ? "" : "hidden"}>${saved ? md(saved, j.matched) : ""}</div>`;
+  let text = saved || "";
+  sample = sample ?? await cap("sample");
+  downloads = downloads ?? await cap("downloads");
+  if (current !== j) return;
+  const fallback = async () => { $("#go").hidden = true; $("#cp-prompt").hidden = false; $("#cp-prompt").onclick = async () => copy(buildPrompt(j, await description(j))) };
+  if (!sample) { fallback(); $("#st").textContent = "In-page tailoring isn't available in this view. Copy the prompt and paste it into Claude instead." }
+  if (downloads && saved) $("#dl").hidden = false;
+  $("#cp").onclick = () => copy(text);
+  $("#dl").onclick = () => downloads.save({ filename: `Aashay_Gokhale_${j.company}_${j.title}`.replace(/[^\w]+/g, "_").slice(0, 80) + ".md", data: text })
+    .then(() => $("#st").textContent = "Saved.").catch(e => $("#st").textContent = e.code === "declined" ? "" : "Couldn't save the file here. Use Copy instead.");
+  $("#stop").onclick = () => ctl?.abort();
+  $("#go").onclick = async () => {
+    const jd = await description(j);
+    ctl = new AbortController();
+    $("#go").disabled = true; $("#stop").hidden = false; $("#out").hidden = false; $("#out").innerHTML = "";
+    $("#st").textContent = "Thinking… (usually 20–60 seconds)";
+    try {
+      const r = await sample(buildPrompt(j, jd), { signal: ctl.signal, cache: false, onText: ({ text: t }) => { if (current !== j) return; text = t; $("#out").innerHTML = md(t, j.matched); $("#st").textContent = "Writing…" } });
+      text = r.text; store.set("jr-tailored-" + j.key, text);
+      if (current === j) { $("#out").innerHTML = md(text, j.matched); $("#st").textContent = r.truncated ? "The answer was cut short. Regenerate to try again." : "Done. Saved in this browser for this job."; $("#cp").hidden = false; if (downloads) $("#dl").hidden = false; $("#go").textContent = "Regenerate" }
+    } catch (e) {
+      if (current !== j) return;
+      const msg = { cancelled: "Stopped.", not_granted: "Tailoring needs your permission to use Claude. Copy the prompt and paste it into Claude instead.", rate_limited: "You've hit a usage limit. Try again in a few minutes.", refused: "Claude couldn't complete this one. Try another job." }[e.code] || "Something went wrong reaching Claude. Try again.";
+      $("#st").textContent = msg;
+      if (e.code === "refused") $("#out").innerHTML = "";
+      else if (e.text) $("#out").innerHTML = md(e.text, j.matched);
+      if (e.code === "not_granted" || e.code === "sampling_disabled") fallback();
+    } finally { $("#go").disabled = false; $("#stop").hidden = true }
+  };
+}
+function copy(t) {
+  navigator.clipboard.writeText(t).then(() => { const s = $("#st"); if (s) s.textContent = "Copied." })
+    .catch(() => { const s = $("#st"); if (s) s.textContent = "Copy was blocked here. Select the text and copy it manually." });
+}
+</script>
+
+</body>
+</html>
