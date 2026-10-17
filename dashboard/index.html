@@ -126,6 +126,31 @@ td.zero { color: var(--muted); opacity: .5 }
 .list { overflow: hidden }
 .row { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; padding: 12px 14px 12px 16px; position: relative; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; cursor: pointer; width: 100% }
 .row:hover { background: var(--surface-2) }
+.row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px }
+.row .rhead { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between }
+.star { border: 0; background: none; cursor: pointer; font-size: 19px; line-height: 1; padding: 2px 4px; color: var(--muted); border-radius: 4px; flex: none }
+.star[aria-pressed="true"] { color: var(--a3) }
+.star:hover { background: var(--surface-2) }
+.chip.new { background: var(--accent); color: var(--accent-ink); font-weight: 600; letter-spacing: .04em }
+.chip.stage { background: var(--accent-soft); color: var(--accent); font-weight: 600 }
+.viewtabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; border-bottom: 1px solid var(--line) }
+.viewtabs button { border: 0; background: none; padding: 10px 4px; cursor: pointer; color: var(--muted); font-weight: 600; border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 15px }
+.viewtabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent) }
+.viewtabs .newinfo { margin-left: auto; font-size: 13px; color: var(--muted) }
+.track { display: grid; gap: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px }
+.track .trow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.track select, .board select { padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface) }
+.track textarea { width: 100%; min-height: 56px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); resize: vertical; font: inherit; font-size: 13px }
+.board { display: grid; grid-template-columns: repeat(5, minmax(220px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 6px }
+.bcol { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: grid; gap: 8px; align-content: start; min-width: 0 }
+.bcol h3 { display: flex; justify-content: space-between }
+.bcard { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; display: grid; gap: 5px; font-size: 13px; min-width: 0 }
+.bcard .t { font-weight: 600; overflow-wrap: anywhere }
+.bcard .m, .bcard .n { color: var(--muted); overflow-wrap: anywhere }
+.bcard .n { font-style: italic }
+.bcard .acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
+.bcard .acts a, .bcard .acts button { font-size: 12px }
+.bempty { color: var(--muted); font-size: 13px; padding: 6px 2px }
 .row .stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 5px }
 .chip.grade { display: inline-flex; align-items: center; gap: 5px; color: var(--fg); background: var(--surface-2) }
 .row[aria-current="true"] { background: var(--accent-soft) }
@@ -241,6 +266,7 @@ td.zero { color: var(--muted); opacity: .5 }
     <label class="toggle"><input type="checkbox" id="f-cit"> Hide US-citizen / clearance</label>
     <label class="toggle"><input type="checkbox" id="f-spon"> Hide “no sponsorship”</label>
     <label class="toggle"><input type="checkbox" id="f-yrs"> ≤2 yrs experience</label>
+    <label class="toggle"><input type="checkbox" id="f-new"> New since last visit <span class="num" id="n-new"></span></label>
     <label class="toggle"><input type="checkbox" id="f-agg" checked> Hide job boards &amp; staffing agencies</label>
     <button class="linkbtn" id="reset">Clear all</button>
   </section>
@@ -256,6 +282,14 @@ td.zero { color: var(--muted); opacity: .5 }
       <th data-k="name">State</th><th data-k="all">Jobs</th><th data-k="t0">Full-time</th><th data-k="t1">Intern</th><th data-k="t2">Co-op</th><th data-k="t3">Part-time</th><th data-k="m2">Remote</th><th data-k="m1">Hybrid</th><th data-k="m0">On-site</th><th data-k="nw">New (≤7d)</th>
     </tr></thead><tbody></tbody></table></div>
   </section>
+
+  <div class="viewtabs" role="tablist">
+    <button role="tab" id="v-all" aria-selected="true">All jobs</button>
+    <button role="tab" id="v-board" aria-selected="false">My applications <span class="num" id="n-tracked"></span></button>
+    <span class="newinfo" id="new-info"></span>
+  </div>
+
+  <section class="board" id="board" hidden aria-label="My applications"></section>
 
   <div class="panes">
     <div>
@@ -326,7 +360,10 @@ fetch("meta.json", { cache: "no-store" }).then(r => r.ok ? r.json() : {}).catch(
       hay: (x.t + " " + company + " " + x.l + " " + states.map(s => STATES[s]).join(" ")).toLowerCase(),
     };
   });
+  KEYIDX = new Map(JOBS.map(j => [j.key, j]));
+  initNew();
   JOBS.forEach(j => j.rank = recommend(j));
+  updateTrackCount();
   stamp(); setInterval(stamp, 60e3); setInterval(checkNewer, 10 * 60e3);
   $("#h-src").textContent = META.sources;
   META.levels.forEach((l, i) => $("#f-level").insertAdjacentHTML("beforeend", `<option value="${i}">${esc(l)}</option>`));
@@ -361,7 +398,8 @@ function recommend(j) {
   else if (UG_TITLE.test(j.title)) r *= 0.5;               // undergrad-only roles
   if (j.reposts >= 3) r *= 0.85;
   if (j.mass) r *= 0.85;
-  if (j.reposter) r *= 0.6;                                // a relisting, not the employer's own posting
+  if (j.reposter) r *= 0.6;
+  if (j.isNew) r *= 1.08;                                  // appeared since your last visit                                // a relisting, not the employer's own posting
   if (j.years != null && j.years > 2) r *= 0.75;
   return Math.round(r * 10) / 10;
 }
@@ -478,7 +516,9 @@ $("#c-mode").addEventListener("click", e => { const b = e.target.closest("[data-
 $("#lg-age").addEventListener("click", e => { const b = e.target.closest("[data-age]"); if (b) toggle(F.ages, +b.dataset.age) });
 $("#lg-rep").addEventListener("click", e => { const b = e.target.closest("[data-rep]"); if (b) toggle(F.reps, +b.dataset.rep) });
 $("#c-all").addEventListener("click", () => { F.types.clear(); F.modes.clear(); save(); render() });
+$("#f-new").addEventListener("change", () => render());
 $("#reset").addEventListener("click", () => {
+  $("#f-new").checked = false;
   F.types.clear(); F.modes.clear(); F.ages.clear(); F.reps.clear(); F.state = ""; $("#f-state").value = ""; $("#q").value = "";
   IDS.forEach(i => { const el = document.getElementById(i); el.type === "checkbox" ? el.checked = i === "f-agg" : el.selectedIndex = 0 });
   save(); render();
@@ -503,7 +543,7 @@ $("#map").addEventListener("pointerleave", () => $("#tip").hidden = true);
 /* ---------- filtering ---------- */
 function ctx() {
   return { lv: $("#f-level").value, fd: $("#f-field").value, q: $("#q").value.trim().toLowerCase(), mine: $("#f-mine").checked,
-           agg: $("#f-agg").checked, cit: $("#f-cit").checked, spon: $("#f-spon").checked, yrs: $("#f-yrs").checked };
+           newOnly: $("#f-new").checked, agg: $("#f-agg").checked, cit: $("#f-cit").checked, spon: $("#f-spon").checked, yrs: $("#f-yrs").checked };
 }
 function passes(j, c, ignore = {}) {
   if (!ignore.type && F.types.size && !F.types.has(j.type)) return false;
@@ -515,6 +555,7 @@ function passes(j, c, ignore = {}) {
   if (c.fd !== "" && j.field !== +c.fd) return false;
   if (c.mine && !j.tracks) return false;
   if (c.agg && j.reposter) return false;
+  if (c.newOnly && !j.isNew) return false;
   if (c.cit && j.restricted) return false;
   if (c.spon && j.noSponsor) return false;
   if (c.yrs && (j.years ?? 0) > 2) return false;
@@ -595,13 +636,15 @@ function rowHTML(j) {
   const stripe = $("#f-color").value === "rep" ? gradeRep(j) : gradeAge(j);
   const age = `<span class="chip grade"><i class="dot" style="background:${gradeAge(j)}"></i>${esc(ageText(j.age))}</span>`;
   const rp = j.reposts ? `<span class="chip grade"><i class="dot" style="background:${gradeRep(j)}"></i>Reposted ${j.reposts}×</span>` : "";
-  return `<button class="row" role="listitem" data-id="${esc(j.id)}" aria-current="${current?.id === j.id}">
+  const t = TRACK[j.key];
+  return `<div class="row" role="listitem" tabindex="0" data-id="${esc(j.id)}" aria-current="${current?.id === j.id}">
     <span class="stripe" style="background:${stripe}" aria-hidden="true"></span>
     <div class="fit ${fitClass(j.fit)}">${j.fit}<small>${fitWord(j.fit)}</small></div>
-    <div><div class="t">${esc(j.title)}</div>
+    <div><div class="rhead"><div class="t">${j.isNew ? `<span class="chip new">NEW</span> ` : ""}${esc(j.title)}</div>
+      <button class="star" data-star="${esc(j.id)}" aria-pressed="${!!t}" aria-label="${t ? "Saved: " + esc(t.stage) : "Save this job"}" title="${t ? esc(t.stage) + " (click to open)" : "Save"}">${t ? "★" : "☆"}</button></div>
       <div class="m">${esc(j.company)} · ${esc(j.location || where)}</div>
-      <div class="chips">${age}${rp}<span class="chip type">${esc(META.types[j.type])}</span><span class="chip type">${esc(META.modes[j.mode])}</span><span class="chip">${esc(where)}</span><span class="chip res">Use: ${esc(SHORT_RES[META.resumes[j.best].key])}</span>${f.join("")}</div>
-    </div></button>`;
+      <div class="chips">${t ? `<span class="chip stage">${esc(t.stage)}</span>` : ""}${age}${rp}<span class="chip type">${esc(META.types[j.type])}</span><span class="chip type">${esc(META.modes[j.mode])}</span><span class="chip">${esc(where)}</span><span class="chip res">Use: ${esc(SHORT_RES[META.resumes[j.best].key])}</span>${f.join("")}</div>
+    </div></div>`;
 }
 function more() {
   const chunk = VIEW.slice(shown, shown + PAGE); shown += chunk.length;
@@ -611,11 +654,156 @@ function more() {
 }
 $("#list").addEventListener("click", e => {
   if (e.target.closest("#more")) return more();
+  const star = e.target.closest(".star");
+  if (star) {
+    const j = JOBS[+star.dataset.star], t = TRACK[j.key];
+    if (!t) setStage(j, "Saved");
+    else if (t.stage === "Saved") setStage(j, "");
+    else openJob(j);                                   // further along: open it rather than un-save by accident
+    return;
+  }
   const row = e.target.closest(".row"); if (!row) return;
   document.querySelectorAll(".row[aria-current=true]").forEach(r => r.setAttribute("aria-current", "false"));
   row.setAttribute("aria-current", "true");
   openJob(JOBS[+row.dataset.id]);
 });
+
+$("#list").addEventListener("keydown", e => {
+  const row = e.target.closest(".row");
+  if (row && e.target === row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); row.click() }
+});
+
+/* ---------- saved jobs + application tracking (stored in this browser) ---------- */
+const STAGES = ["Saved", "Applied", "Interview", "Offer", "Rejected"];
+const TRACK_KEY = "jr-tracker";
+let TRACK = store.get(TRACK_KEY, {}), KEYIDX = new Map();
+const todayISO = () => new Date().toISOString().slice(0, 10);
+function saveTrack() { store.set(TRACK_KEY, TRACK); updateTrackCount() }
+function updateTrackCount() { const n = Object.keys(TRACK).length; $("#n-tracked").textContent = n ? `(${n})` : "" }
+async function setStage(j, stage) {
+  if (!stage) delete TRACK[j.key];
+  else {
+    const t = TRACK[j.key] || { title: j.title, company: j.company, location: j.location || j.states.join(", "), savedAt: todayISO(), notes: "" };
+    t.stage = stage; t.updatedAt = new Date().toISOString();
+    if (stage === "Applied" && !t.appliedAt) t.appliedAt = todayISO();
+    TRACK[j.key] = t;
+    if (!t.url) details(j).then(([url]) => { if (url && TRACK[j.key]) { TRACK[j.key].url = url; saveTrack() } }).catch(() => {});
+  }
+  saveTrack(); rerow(j);
+  if (current === j) renderTrackBox(j);
+  if (!$("#board").hidden) renderBoard();
+}
+function rerow(j) {
+  const el = document.querySelector(`#list .row[data-id="${j.id}"]`);
+  if (el) el.outerHTML = rowHTML(j);
+}
+function renderTrackBox(j) {
+  const box = $("#track-box"); if (!box) return;
+  const t = TRACK[j.key];
+  box.innerHTML = `
+    <div class="trow"><h3 style="margin:0">Track this job</h3>
+      <select id="trk-stage" aria-label="Application status"><option value="">Not tracked</option>${STAGES.map(s => `<option ${t?.stage === s ? "selected" : ""}>${s}</option>`).join("")}</select>
+      <span class="note">${t ? `Saved ${esc(t.savedAt)}${t.appliedAt ? ` · applied ${esc(t.appliedAt)}` : ""}` : "Saved jobs appear under My applications."}</span></div>
+    <textarea id="trk-notes" placeholder="Notes: recruiter you messaged, referral, interview dates…">${esc(t?.notes || "")}</textarea>`;
+  $("#trk-stage").onchange = e => setStage(j, e.target.value);
+  let tm;
+  $("#trk-notes").oninput = e => {
+    clearTimeout(tm);
+    tm = setTimeout(() => {
+      if (!TRACK[j.key]) { if (!e.target.value.trim()) return; setStage(j, "Saved") }
+      TRACK[j.key].notes = e.target.value; TRACK[j.key].updatedAt = new Date().toISOString(); saveTrack();
+    }, 400);
+  };
+}
+
+/* ---------- My applications board ---------- */
+function showView(board) {
+  $("#v-all").setAttribute("aria-selected", !board); $("#v-board").setAttribute("aria-selected", board);
+  $("#board").hidden = !board;
+  document.querySelectorAll(".panes, .bystate, .filters, .counts, .fresh").forEach(el => el.hidden = board);
+  if (board) renderBoard();
+}
+$("#v-all").onclick = () => showView(false);
+$("#v-board").onclick = () => showView(true);
+function sinceText(iso) { const d = Math.round((Date.now() - new Date(iso)) / 864e5); return d <= 0 ? "today" : d === 1 ? "1 day ago" : d + " days ago" }
+function renderBoard() {
+  const items = Object.entries(TRACK).sort((a, b) => (b[1].updatedAt || "").localeCompare(a[1].updatedAt || ""));
+  $("#board").innerHTML = STAGES.map(stage => {
+    const cards = items.filter(([, t]) => t.stage === stage);
+    return `<div class="bcol"><h3><span>${stage}</span><span class="num">${cards.length}</span></h3>
+      ${cards.length ? cards.map(([key, t]) => {
+        const live = KEYIDX.get(key);
+        return `<div class="bcard" data-key="${esc(key)}">
+          <div class="t">${esc(t.title)}</div>
+          <div class="m">${esc(t.company)}${t.location ? " · " + esc(t.location) : ""}</div>
+          <div class="m">${t.appliedAt ? "Applied " + esc(t.appliedAt) : "Saved " + esc(t.savedAt)} · updated ${sinceText(t.updatedAt)}${live ? "" : " · <b>no longer listed</b>"}</div>
+          ${t.notes ? `<div class="n">${esc(t.notes.slice(0, 140))}${t.notes.length > 140 ? "…" : ""}</div>` : ""}
+          <div class="acts">
+            <select data-move aria-label="Move to">${STAGES.map(s => `<option ${s === stage ? "selected" : ""}>${s}</option>`).join("")}</select>
+            ${live ? `<button class="linkbtn" data-show>Details</button>` : ""}
+            ${t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">Posting ↗</a>` : ""}
+            <button class="linkbtn" data-remove>Remove</button>
+          </div></div>`;
+      }).join("") : `<div class="bempty">${stage === "Saved" ? "Click ☆ on any job to save it here." : "Nothing here yet."}</div>`}
+    </div>`;
+  }).join("");
+}
+$("#board").addEventListener("change", e => {
+  if (!e.target.matches("[data-move]")) return;
+  const key = e.target.closest(".bcard").dataset.key, t = TRACK[key];
+  t.stage = e.target.value; t.updatedAt = new Date().toISOString();
+  if (t.stage === "Applied" && !t.appliedAt) t.appliedAt = todayISO();
+  saveTrack(); renderBoard(); const j = KEYIDX.get(key); if (j) rerow(j);
+});
+$("#board").addEventListener("click", e => {
+  const card = e.target.closest(".bcard"); if (!card) return;
+  const key = card.dataset.key, j = KEYIDX.get(key);
+  if (e.target.matches("[data-remove]")) { delete TRACK[key]; saveTrack(); renderBoard(); if (j) rerow(j) }
+  else if (e.target.matches("[data-show]") && j) { showView(false); openJob(j) }
+});
+
+/* ---------- new since your last visit ---------- */
+// What you saw is kept as a compact sorted list of 32-bit fingerprints of each job (about 1 MB here).
+// The "last visit" baseline only moves on once you've been away 6+ hours, so a reload or a quick
+// refresh doesn't wipe the NEW badges you haven't looked at yet.
+const V_CUR = "jr-visit-cur", V_BASE = "jr-visit-base", AWAY = 6 * 3600e3;
+let NEW_SINCE = null, NEW_COUNT = 0;
+function fnv(str) { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) } return h >>> 0 }
+function pack(hashes) {
+  const b = new Uint8Array(new Uint32Array(Uint32Array.from(hashes).sort()).buffer);
+  let bin = ""; for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function unpack(b64) { const bin = atob(b64), b = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i); return new Uint32Array(b.buffer) }
+function inSorted(arr, x) { let lo = 0, hi = arr.length - 1; while (lo <= hi) { const m = (lo + hi) >> 1; if (arr[m] === x) return true; arr[m] < x ? lo = m + 1 : hi = m - 1 } return false }
+function snapshot() { return { ver: META.fetched_at, at: Date.now(), set: pack(JOBS.map(j => j.h)) } }
+function initNew() {
+  JOBS.forEach(j => j.h = fnv(j.key));
+  let cur = store.get(V_CUR, null), base = store.get(V_BASE, null);
+  if (!cur) { store.set(V_CUR, snapshot()); base = null }                  // first visit: start tracking from now
+  else if (cur.ver !== META.fetched_at && Date.now() - cur.at > AWAY) {    // back after a while: last visit becomes the baseline
+    base = cur; store.set(V_BASE, base); store.set(V_CUR, snapshot());
+  }
+  let seen = null;
+  try { seen = base ? unpack(base.set) : null } catch { seen = null }
+  NEW_SINCE = seen ? base.at : null; NEW_COUNT = 0;
+  JOBS.forEach(j => { j.isNew = !!seen && !inSorted(seen, j.h); if (j.isNew) NEW_COUNT++ });
+  newInfo();
+}
+function newInfo() {
+  $("#n-new").textContent = NEW_SINCE ? `(${NEW_COUNT.toLocaleString()})` : "";
+  $("#f-new").disabled = !NEW_SINCE || !NEW_COUNT;
+  const when = NEW_SINCE && new Date(NEW_SINCE).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  $("#new-info").innerHTML = !NEW_SINCE ? "New-job badges start from your next visit."
+    : NEW_COUNT ? `<strong>${NEW_COUNT.toLocaleString()} new</strong> since your last visit (${esc(when)}) · <button class="linkbtn" id="mark-seen">Mark all as seen</button>`
+    : `Nothing new since your last visit (${esc(when)}).`;
+  const btn = $("#mark-seen");
+  if (btn) btn.onclick = () => {
+    const snap = snapshot(); store.set(V_CUR, snap); store.set(V_BASE, snap);
+    JOBS.forEach(j => j.isNew = false); NEW_COUNT = 0; NEW_SINCE = snap.at; $("#f-new").checked = false;
+    JOBS.forEach(j => j.rank = recommend(j)); newInfo(); render();
+  };
+}
 
 /* ---------- tiny markdown renderer for resumes ---------- */
 function inline(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/(^|\s)_(.+?)_(?=\s|$|[.,;])/g, "$1<em>$2</em>") }
@@ -669,6 +857,7 @@ function openJob(j) {
       <div class="m">${esc(j.company)} · ${esc(j.location || where)}</div>
       <div class="actions"><a class="btn primary" id="open-link" target="_blank" rel="noopener" aria-disabled="true">Loading link…</a></div>
     </div>
+    <div class="track" id="track-box"></div>
     <dl class="facts">
       <div><dt>Job type</dt><dd>${esc(META.types[j.type])}</dd></div>
       <div><dt>Work mode</dt><dd>${esc(META.modes[j.mode])} <small>(${esc(MODE_HOW[j.modeSrc])})</small></dd></div>
@@ -700,6 +889,7 @@ function openJob(j) {
   const tabs = { "t-best": showBest, "t-tail": showTailor, "t-jd": showJD };
   for (const id in tabs) $("#" + id).onclick = () => { for (const t in tabs) $("#" + t).setAttribute("aria-selected", t === id); tabs[id](j) };
   (tailored ? showTailor : showBest)(j);
+  renderTrackBox(j);
   d.scrollTop = 0;
   details(j).then(([url]) => {
     const a = $("#open-link"); if (current !== j || !a) return;
